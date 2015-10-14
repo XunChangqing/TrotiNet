@@ -105,6 +105,9 @@ namespace TrotiNet
 
         bool UseIPv6;
 
+        //List<Thread> _connThreadList;
+        Dictionary<int, Thread> _connThreadDict;
+
         /// <summary>
         /// Initialize, but do not start, a multi-threaded TCP server
         /// listening for localhost connections only
@@ -125,6 +128,9 @@ namespace TrotiNet
             InitListenFinished = new ManualResetEvent(false);
             ListenThreadSwitch = new ManualResetEvent(false);
             ListeningThread = null;
+
+            //_connThreadList = new List<Thread>();
+            _connThreadDict = new Dictionary<int, Thread>();
         }
 
         /// <summary>
@@ -140,9 +146,16 @@ namespace TrotiNet
                 System.Threading.Thread.CurrentThread.ManagedThreadId)
             {
                 // No! Give me a new thread!
-                new Thread(() => AcceptCallback(ar)).Start();
+                //new Thread(() => AcceptCallback(ar)).Start();
+                Thread n = new Thread(() => AcceptCallback(ar));
+                lock(_connThreadDict)
+                {
+                    _connThreadDict.Add(n.ManagedThreadId, n);
+                }
+                n.Start();
                 return;
             }
+            log.Info("Accept thread id: " + System.Threading.Thread.CurrentThread.ManagedThreadId);
 
             // Get the socket that handles the client request
             Socket listener = (Socket)ar.AsyncState;
@@ -170,6 +183,11 @@ namespace TrotiNet
             if (proxy == null)
             {
                 CloseSocket(state);
+                lock (_connThreadDict)
+                {
+                    _connThreadDict.Remove(Thread.CurrentThread.ManagedThreadId);
+                    log.Info("Exit Thread: " + Thread.CurrentThread.ManagedThreadId);
+                }
                 return;
             }
 
@@ -191,6 +209,11 @@ namespace TrotiNet
             }
 
             CloseSocket(state);
+            lock (_connThreadDict)
+            {
+                _connThreadDict.Remove(Thread.CurrentThread.ManagedThreadId);
+                log.Info("Exit Thread: " + Thread.CurrentThread.ManagedThreadId);
+            }
         }
 
         /// <summary>
@@ -404,6 +427,25 @@ namespace TrotiNet
             IsListening = false;
 
             log.Info("Server stopped");
+            //关闭所有已链接的socket，这样可以促使多数链接线程正确的退出结束
+            lock (ConnectedSockets)
+            {
+                foreach (var vp in ConnectedSockets)
+                    vp.Value.CloseSocket();
+            }
+            //等待连接线程终止
+            Thread.Sleep(500);
+            //abort所有没有结束的连接线程，防止主程序由于有后台线程没有结束而无法终止
+            lock(_connThreadDict)
+            {
+                log.Info("Still Alive Threads: "+_connThreadDict.Count);
+                foreach(var t in _connThreadDict)
+                {
+                    t.Value.Abort();
+                    //t.Value.Join();
+                    //log.Info(t.Value.ThreadState);
+                }
+            }
         }
     }
 }

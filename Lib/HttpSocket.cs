@@ -535,7 +535,7 @@ namespace TrotiNet
         /// </summary>
         public void Send403()
         {
-            SendHttpError("403 Forbidden");
+            SendHttpError("403 Forbidden, MASA");
         }
 
         /// <summary>

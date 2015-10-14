@@ -11,7 +11,7 @@ namespace TrotiNet.Example
   <root>
     <level value='DEBUG' />
     <appender-ref ref='ConsoleLog' />
-    <!-- <appender-ref ref='FileLog' /> -->
+    <appender-ref ref='FileLog' />
   </root>
 
   <logger name='Trotinet'>
@@ -37,7 +37,6 @@ namespace TrotiNet.Example
     </mapping>
   </appender>
 
-  <!--
   <appender name='FileLog' type='log4net.Appender.RollingFileAppender'>
     <file value='__CHANGE_ME__/trotinet.txt' />
     <appendToFile value='true' />
@@ -48,7 +47,6 @@ namespace TrotiNet.Example
       <conversionPattern value='%d [%t] %-5p %c - %m%n'  />
     </layout>
   </appender>
-  -->
 </log4net>";
             log4net.Config.XmlConfigurator.Configure(
                 new MemoryStream(System.Text.Encoding.ASCII.GetBytes(cfg)));

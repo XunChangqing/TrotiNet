@@ -37,7 +37,7 @@ namespace TrotiNet.Example
             while (true)
                 System.Threading.Thread.Sleep(1000);
 
-            //Server.Stop();
+            Server.Stop();
         }
     }
 }
