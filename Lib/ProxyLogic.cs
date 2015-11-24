@@ -191,11 +191,21 @@
             int prefix = 0; // current parse position
             if (hrl.URI.Contains("://"))
             {
+                //当URI包含://，为普通网址时，需要规范化
+                //特别是如果是根目录，尾部不附加/，又是ip:port形式，则下面在解析port时会发生异常
+                //这个问题会导致部分网银客户端无法工作
+                //这里不能使用这种方法进行规范化，否则会导致在搜索页面时出现搜索结果都是？的错误
+                //因为在查询网址中搜索字符是url encode以后，通过这种方式进行规范化就会变成中文
+                //导致搜索结果出错
+                //log.Info("URI before normalization: " + hrl.URI);
+                //hrl.URI = new Uri(hrl.URI).ToString();
+                //log.Info("URI after normalization: " + hrl.URI);
                 if (hrl.URI.StartsWith("http://"))
                     prefix = 7; // length of "http://"
                 else
                 if (hrl.URI.StartsWith("https://"))
                 {
+                    log.Error("Unexpected https request!");
                     prefix = 8; // length of "https://"
                     port = 443;
                 }
@@ -210,12 +220,20 @@
             // 3) /abs_path
 
             int slash = hrl.URI.IndexOf('/', prefix);
+            //这里如果找不到/，但是又确定包含http或是https，则表示为根目录，忘记添加/了
+            if (slash == -1 && prefix!= -1)
+            {
+                hrl.URI = hrl.URI + "/";
+                slash = hrl.URI.IndexOf('/', prefix);
+                log.Info("URI is not normal: " + hrl.URI);
+            }
             string authority = null;
             if (slash == -1)
             {
                 // case 1
                 authority = hrl.URI;
                 System.Diagnostics.Debug.Assert(bIsConnect);
+                log.Error("URI only authority but not connect request!");
             }
             else
                 if (slash > 0) // Strict inequality
@@ -848,6 +866,7 @@
     /// </summary>
     public class ProxyLogic: BaseProxyLogic
     {
+        static readonly ILog log = Log.Get();
         /// <summary>
         /// Instantiate a transparent proxy
         /// </summary>
@@ -974,6 +993,7 @@
                         "Chunked data found when not expected");
             }
 
+            byte[] buffer;
             if (ResponseHeaders.ContentLength != null)
             {
                 ResponseMessageLength =
@@ -981,17 +1001,27 @@
 
                 if (ResponseMessageLength == 0)
                     return new byte[0];
+                buffer = new byte[ResponseMessageLength];
+                SocketPS.TunnelDataTo(buffer, ResponseMessageLength);
             }
             else
             {
                 // If the connection is not being closed,
                 // we need a content length.
-                System.Diagnostics.Debug.Assert(
-                    !State.bPersistConnectionPS);
+                //System.Diagnostics.Debug.Assert(
+                //    !State.bPersistConnectionPS);
+
+                log.Info("GetNonChunkedContent of null Content-Length: " + RequestLine.URI);
+                //如果没有包含content-length，则尽量读取
+                buffer = new byte[512];
+                SocketPS.TunnelDataTo(ref buffer);
+
+                // Transmit the response header to the client
+                ResponseHeaders.ContentLength = (uint)buffer.Length;
             }
 
-            byte[] buffer = new byte[ResponseMessageLength];
-            SocketPS.TunnelDataTo(buffer, ResponseMessageLength);
+            //byte[] buffer = new byte[ResponseMessageLength];
+            //SocketPS.TunnelDataTo(buffer, ResponseMessageLength);
 
             return buffer;
         }

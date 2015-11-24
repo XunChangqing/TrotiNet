@@ -515,6 +515,24 @@ namespace TrotiNet
         }
 
         /// <summary>
+        /// Send a HTTP Masa Forbidden Message
+        /// </summary>
+        public void SendMasaHttpForbidden(string redirectUrl, string reasonBody)
+        {
+            string html_body = "<html>\n <body>\n  <h1>" +
+                reasonBody + "</h1>\n </body>\n</html>";
+            WriteBinary(System.Text.Encoding.ASCII.GetBytes(
+                "HTTP/1.0 303 see other\r\n" +
+                "Location: "+redirectUrl+"\r\n" +
+                "Content-Type: text/html\r\n" +
+                "Content-Length: " + html_body.Length + "\r\n" +
+                "\r\n" + html_body + "\r\n"));
+                //"HTTP/1.0 " + "301" + "\r\n" +
+            //307 temporary redirect
+                //"Connection: close\r\n" +
+        }
+
+        /// <summary>
         /// Send a HTTP 302 redirection over the socket
         /// </summary>
         public void Send302()
@@ -535,7 +553,7 @@ namespace TrotiNet
         /// </summary>
         public void Send403()
         {
-            SendHttpError("403 Forbidden, MASA");
+            SendHttpError("403 Forbidden");
         }
 
         /// <summary>
